@@ -24,6 +24,9 @@
 - [附录：测试项说明](#附录测试项说明)
   - [已有测试项](#已有测试项)
   - [新增测试项](#新增测试项)
+- [Summer2021-No.139 DPDK，SPDK用户态驱动开发和兼容性测试用例补充](#summer2021-no139-dpdkspdk用户态驱动开发和兼容性测试用例补充)
+      - [介绍](#介绍)
+      - [特技](#特技)
 
 <!-- /TOC -->
 
@@ -338,3 +341,15 @@ https://gitee.com/src-openeuler/oec-hardware/releases
    - 变量 `requirements` - 以数组形式存放测试依赖的 rpm 包名，测试开始前框架自动安装。
 
    - 变量 `reboot` 和 `rebootup` - 若 `reboot = True` 表示该测试套/测试用例会重启系统，且在重启后继续执行 `rebootup` 指定的函数，可以参考 kdump 测试。
+# Summer2021-No.139 DPDK，SPDK用户态驱动开发和兼容性测试用例补充
+
+#### 介绍
+https://gitee.com/openeuler-competition/summer-2021/issues/I3RD4W
+#### 特技
+
+1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
+2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
+3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
+4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
+5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
+6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
