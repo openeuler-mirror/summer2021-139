@@ -1,6 +1,7 @@
 import os
 import time
 import argparse
+import glob
 from math import log2
 try:
     from urllib.parse import urlencode
@@ -88,7 +89,18 @@ class DPDKTest(Test):
             self._show_non_numa_pages()
 
     def _show_numa_pages(self):
-        pass 
+        print('Node Pages Size Total')
+        for numa_path in glob.glob('/sys/devices/system/node/node*'):
+            node = numa_path[29:]  # slice after /sys/devices/system/node/node
+            path = numa_path + '/hugepages/'
+            for hdir in os.listdir(path):
+                comm = Command("cat %s" % path + hdir + '/nr_hugepages')
+                pages = int(comm.read())
+                if pages > 0:
+                    kb = int(hdir[10:-2])  # slice out of hugepages-NNNkB
+                    print('{:<4} {:<5} {:<6} {}'.format(node, pages,
+                            self.fmt_memsize(kb),
+                            self.fmt_memsize(pages * kb)))
 
     def _show_non_numa_pages(self):
         '''Show huge page reservations on non numa system'''
@@ -116,6 +128,7 @@ class DPDKTest(Test):
         pass
 
     def fmt_memsize(self, kb):
+        '''format memsize. this is a code snippit from dpdk repo'''
         BINARY_PREFIX = "KMG"
         logk = int(log2(kb) / 10)
         suffix = BINARY_PREFIX[logk]
