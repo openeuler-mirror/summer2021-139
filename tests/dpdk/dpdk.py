@@ -96,8 +96,8 @@ class DPDKTest(Test):
         hugepagedir = '/sys/kernel/mm/hugepages/'
         for hdir in os.listdir(hugepagedir):
             comm = Command("cat %s" % hugepagedir + hdir + '/nr_hugepages')
-            pages = comm.read()
-            if int(pages) > 0:
+            pages = int(comm.read())
+            if pages > 0:
                 kb = int(hdir[10:-2])
                 print('{:<5} {:<6} {}'.format(pages, self.fmt_memsize(kb),
                         self.fmt_memsize(pages * kb)))
@@ -115,7 +115,7 @@ class DPDKTest(Test):
         """
         pass
 
-    def fmt_memsize(kb):
+    def fmt_memsize(self, kb):
         BINARY_PREFIX = "KMG"
         logk = int(log2(kb) / 10)
         suffix = BINARY_PREFIX[logk]
