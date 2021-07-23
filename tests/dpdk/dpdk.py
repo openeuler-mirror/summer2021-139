@@ -39,6 +39,12 @@ class DPDKTest(Test):
 
         print("Hugepage successfully configured.")
         self.show_hugepage()
+
+        if not self._check_lsmod():
+            print("[X] No required kernel module was found (uio, igb_uio or vfio).")
+            return False
+        print("Found kernel module.")
+
         return True
 
     def test_speed(self):
@@ -113,6 +119,19 @@ class DPDKTest(Test):
                 kb = int(hdir[10:-2])
                 print('{:<5} {:<6} {}'.format(pages, self.fmt_memsize(kb),
                         self.fmt_memsize(pages * kb)))
+    
+    def _check_lsmod(self):
+        comm = Command("lsmod | grep -E '^uio +'")
+        comm.start()
+        if not comm.readline():
+            return False
+        
+        comm = Command("lsmod | grep -E '^igb_uio +|^vfio +'")
+        comm.start()
+        if not comm.readline():
+            return False
+
+        return True
 
     def _is_numa(self):
         '''Test if numa is used on this system'''
