@@ -17,6 +17,8 @@ from hwcompatible.env import CertEnv
 # TODO: do we need vfio modules?
 class DPDKTest(Test):
     def __init__(self):
+        print("This is a basic test based on DPDK 20.11.0.\n"
+        "DPDK version should be newer than this minimum to avoid unintended behaviour")
         Test.__init__(self)
         self.requirements = ['test-pmd']
         self.subtests = [self.test_setup, self.test_speed,
@@ -59,14 +61,13 @@ class DPDKTest(Test):
             hugepagedir = '/sys/devices/system/node/node%d/hugepages/' % numaid
 
         for (_, dirs, _) in os.walk(hugepagedir):
+            for directory in dirs:
+                comm = Command("cat %s" % hugepagedir + directory + '/nr_hugepages')
+                nb = comm.read()
+                if int(nb) != 0:
+                    return True
             break
-
-        for directory in dirs:
-            comm = Command("cat %s" % hugepagedir + directory + '/nr_hugepages')
-            nb = comm.read()
-            if int(nb) != 0:
-                return True
-        
+            
         return False
         # return false when
         # 1. no files in hugepagedir, 2. no non-zero entry was found
