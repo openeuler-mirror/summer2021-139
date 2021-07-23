@@ -1,6 +1,7 @@
 import os
 import time
 import argparse
+from math import log2
 try:
     from urllib.parse import urlencode
     from urllib.request import urlopen, Request
@@ -36,6 +37,7 @@ class DPDKTest(Test):
             return False
 
         print("Hugepage successfully configured.")
+        self.show_hugepage()
         return True
 
     def test_speed(self):
@@ -78,6 +80,27 @@ class DPDKTest(Test):
         if not comm.readline():
             return False
         return True
+    
+    def show_hugepage(self):
+        if self.numa:
+            self._show_numa_pages()
+        else:
+            self._show_non_numa_pages()
+
+    def _show_numa_pages(self):
+        pass 
+
+    def _show_non_numa_pages(self):
+        '''Show huge page reservations on non numa system'''
+        print('Pages Size Total')
+        hugepagedir = '/sys/kernel/mm/hugepages/'
+        for hdir in os.listdir(hugepagedir):
+            comm = Command("cat %s" % hugepagedir + hdir + '/nr_hugepages')
+            pages = comm.read()
+            if int(pages) > 0:
+                kb = int(hdir[10:-2])
+                print('{:<5} {:<6} {}'.format(pages, self.fmt_memsize(kb),
+                        self.fmt_memsize(pages * kb)))
 
     def _is_numa(self):
         '''Test if numa is used on this system'''
@@ -91,3 +114,10 @@ class DPDKTest(Test):
         Connect to the server somehow. 
         """
         pass
+
+    def fmt_memsize(kb):
+        BINARY_PREFIX = "KMG"
+        logk = int(log2(kb) / 10)
+        suffix = BINARY_PREFIX[logk]
+        unit = 2 ** (logk * 10)
+        return '{}{}b'.format(int(kb / unit), suffix)
