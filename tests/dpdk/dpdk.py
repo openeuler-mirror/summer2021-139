@@ -48,6 +48,13 @@ class DPDKTest(Test):
         return True
 
     def test_speed(self):
+        '''test (single-core) DPDK speed'''
+        if not self.call_remote_server("test-pmd"):
+            print("[X] start DPDK server failed.")
+            return False
+        
+        print("[+] Testing speed...")
+
         pass
 
     def test_latency(self):
@@ -60,6 +67,9 @@ class DPDKTest(Test):
         pass
 
     def setup_device(self):
+        pass
+
+    def run(self):
         pass
 
     def _check_hugepage_allocate(self):
@@ -82,11 +92,11 @@ class DPDKTest(Test):
         # 1. no files in hugepagedir, 2. no non-zero entry was found
 
     def _check_hugepage_mount(self):
-        comm = Command("mount | grep ^hugetlb") # TODO: check this
-        comm.start()
-        if not comm.readline():
-            return False
-        return True
+        mounted = self._get_mountpoints()
+        if mounted:
+            return True
+        else:
+             return False
     
     def show_hugepage(self):
         if self.numa:
@@ -132,6 +142,17 @@ class DPDKTest(Test):
             return False
 
         return True
+
+    def _get_mountpoints(self):
+        '''Get list of where hugepage filesystem is mounted'''
+        mounted = []
+        with open('/proc/mounts') as mounts:
+            for line in mounts:
+                fields = line.split()
+                if fields[2] != 'hugetlbfs':
+                    continue
+                mounted.append(fields[1])
+        return mounted
 
     def _is_numa(self):
         '''Test if numa is used on this system'''
