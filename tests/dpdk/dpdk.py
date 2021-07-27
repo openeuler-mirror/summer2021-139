@@ -17,6 +17,7 @@ from hwcompatible.document import CertDocument
 from hwcompatible.env import CertEnv
 
 from . import hugepages as hp
+from . import devbind as db
 # import hugepages as hp
 
 # TODO: do we need vfio modules?
@@ -30,6 +31,8 @@ class DPDKTest(Test):
                 self.test_latency, self.test_cpu_usage]
         self.server_ip = None
         self.numa = hp.is_numa()
+        # list of suported DPDK drivers
+        self.supported_modules = ["igb_uio", "vfio-pci", "uio_pci_generic"]
 
 
     def test_setup(self):
@@ -40,13 +43,13 @@ class DPDKTest(Test):
             print("[X] No hugepage mounted.")
             return False
 
-        print("Hugepage successfully configured.")
+        print("[.] Hugepage successfully configured.")
         self._show_hugepage()
 
         if not self._check_lsmod():
             print("[X] No required kernel module was found (uio, igb_uio or vfio).")
             return False
-        print("Found kernel module.")
+        print("[.] kernel module check done.")
 
         return True
 
@@ -91,17 +94,7 @@ class DPDKTest(Test):
             return False
 
     def _check_lsmod(self):
-        comm = Command("lsmod | grep -E '^uio +'")
-        comm.start()
-        if not comm.readline():
-            return False
-        
-        comm = Command("lsmod | grep -E '^igb_uio +|^vfio +'")
-        comm.start()
-        if not comm.readline():
-            return False
-
-        return True
+        return db.is_module_loaded(self.supported_modules)
 
     def call_remote_server(self, cmd, act='start'):
         """

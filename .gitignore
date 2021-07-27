@@ -1,3 +1,4 @@
 *__pycache__*
 tests/clock/clock
 tests/watchdog/watchdog
+test.sh
