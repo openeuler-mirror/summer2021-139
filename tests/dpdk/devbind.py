@@ -24,6 +24,7 @@ cavium_pkx = {'Class': '08', 'Vendor': '177d', 'Device': 'a0dd,a049',
 avp_vnic = {'Class': '05', 'Vendor': '1af4', 'Device': '1110',
             'SVendor': None, 'SDevice': None}
 
+supported_modules = ["igb_uio", "vfio-pci", "uio_pci_generic"]
 network_devices = [network_class, cavium_pkx, avp_vnic, ifpga_class]
 
 def is_module_loaded(supported_modules):
@@ -45,12 +46,21 @@ def is_module_loaded(supported_modules):
     
     return not module_found_nb == 0
 
+def is_device_bind():
+    global network_devices
+    global supported_modules
 
-# def is_device_bind():
-#     dev_id = "xxxx"
-#     driver = 'igb_uio'
-#     if has_driver(dev_id):
-#         if dev["driver_str"] == driver:
+    devices = get_devices(network_devices)
+    if len(devices) == 0:
+        print("[X] No interface detected.")
+        return False
+    for d in devices.keys():
+        if "Driver_str" in devices[d]:
+            if devices[d]["Driver_str"] in supported_modules:
+                return True
+    print('[X] No device was bound to DPDK suported drivers.'
+            'Try solving this using "dpdk-devbind.py" provided by DPDK installation')
+    return False
 
 def get_devices(device_type):
     devices = {}
