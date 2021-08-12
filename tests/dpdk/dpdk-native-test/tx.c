@@ -1,4 +1,3 @@
-
 #include <stdarg.h>
 #include <string.h>
 #include <stdio.h>
@@ -36,6 +35,7 @@
 #include <rte_flow.h>
 
 #include "config.h"
+#include "stats.h"
 
 /* use RFC863 Discard Protocol */
 static uint16_t tx_udp_src_port = 9;
@@ -50,6 +50,12 @@ static uint32_t tx_ip_dst_addr = (198U << 24) | (18 << 16) | (0 << 8) | 2;
 static struct rte_ipv4_hdr pkt_ip_hdr; /**< IP header of transmitted packets. */
 //RTE_DEFINE_PER_LCORE(uint8_t, _ip_var); /**< IP address variation */
 static struct rte_udp_hdr pkt_udp_hdr; /**< UDP header of tx packets. */
+
+#define TEST_INTERVAL_US 10e6  /* 10s of testing */
+static uint64_t timer_start_tsc;
+static uint64_t timer_curr_tsc;
+static uint64_t timer_period;
+static uint64_t timer_diff_tsc;
 
 static void
 copy_buf_to_pkt_segs(void* buf, unsigned len, struct rte_mbuf *pkt,
@@ -293,12 +299,20 @@ pkt_burst_transmit(struct fwd_stream *fs)
 	core_cycles = (end_tsc - start_tsc);
 	fs->core_cycles = (uint64_t) (fs->core_cycles + core_cycles);
 #endif
+
+	timer_curr_tsc = rte_rdtsc();
+	timer_diff_tsc = timer_curr_tsc - timer_start_tsc;
+	if (timer_diff_tsc > timer_period) {
+		fs->done = true;
+	}
 }
 
 static void
 tx_only_begin(void *arg)
 {
 	uint16_t pkt_data_len;
+	timer_period = (rte_get_tsc_hz() + US_PER_S - 1) / US_PER_S *
+			TEST_INTERVAL_US;
 
 	printf("starting... press ctrl + c to quit and see statistics\n");
 	pkt_data_len = (uint16_t) (tx_pkt_length - (
@@ -306,11 +320,19 @@ tx_only_begin(void *arg)
 					sizeof(struct rte_ipv4_hdr) +
 					sizeof(struct rte_udp_hdr)));
 	setup_pkt_udp_ip_headers(&pkt_ip_hdr, &pkt_udp_hdr, pkt_data_len);
+	timer_start_tsc = rte_rdtsc();
+	fwd_stats_reset();
+}
+
+static void
+tx_only_end(void *arg)
+{
+	fwd_stats_display_neat();
 }
 
 struct fwd_engine tx_engine = {
 	.fwd_mode_name  = "txonly",
 	.port_fwd_begin = tx_only_begin,
-	.port_fwd_end   = NULL,
+	.port_fwd_end   = tx_only_end,
 	.packet_fwd     = pkt_burst_transmit,
 };

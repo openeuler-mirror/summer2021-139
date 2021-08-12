@@ -2,6 +2,8 @@
  * Copyright(c) 2010-2016 Intel Corporation
  */
 
+/** TODO: potential bug, port 1 & port 0 have different speed */
+/** TODO: potential bug,  too many droped packets are*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -173,10 +175,8 @@ launch_pkt_fwd() {
 	// error = rte_eal_remote_launch(start_remote_callback,
 	// 		(void *) &fwd_lcores, fwd_lcores.cpuid_idx);
 
-	fwd_stats_reset();
 	error = start_remote_callback((void *) &fwd_lcores);
 	rte_delay_ms(MIN_TX_AFTER_DELAY); /* allow NIC to consume all due packets */
-	fwd_stats_display_neat();
 
 	if (fwd_end) {
 		(*fwd_end)(NULL);
@@ -190,13 +190,13 @@ launch_pkt_fwd() {
 static void
 usage(const char *prgname)
 {
-	printf("./tx -l 0 -n number_of_memory_channels [EAL parameters] -- [tx parameters]\n"
+	printf("./%s -l 0 -n number_of_memory_channels [EAL parameters] -- [app parameters]\n"
 			"tx parameters: (--peer peer_mac_address) \n"
 			"	(-l length) the length of each packet(burstlet)\n"
 			"	(--tx-mode) for testing only. send 0 filled packets\n"
 			"	(--rx-mode) for testing only. poll and receive packets \n"
 			"	(--file-name filename) the path to file to send\n"
-			);
+			, prgname);
 	// printf("invalid param\n");
 }
 
