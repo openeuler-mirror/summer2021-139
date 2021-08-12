@@ -161,6 +161,7 @@ struct fwd_engine {
 
 extern struct fwd_engine tx_engine;
 extern struct fwd_engine rx_engine;
+extern struct fwd_engine latency_engine;
 
 struct fwd_config {
 	struct fwd_engine	*fwd_eng;

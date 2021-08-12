@@ -423,3 +423,9 @@ fwd_stats_reset(void)
 		fs->core_cycles = 0;
 #endif
 }
+
+void
+latency_stats_display(void)
+{
+	printf("to be implemented.");
+}

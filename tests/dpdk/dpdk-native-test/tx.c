@@ -302,7 +302,7 @@ pkt_burst_transmit(struct fwd_stream *fs)
 
 	timer_curr_tsc = rte_rdtsc();
 	timer_diff_tsc = timer_curr_tsc - timer_start_tsc;
-	if (timer_diff_tsc > timer_period) {
+	if (unlikely(timer_diff_tsc > timer_period)) {
 		fs->done = true;
 	}
 }

@@ -240,6 +240,7 @@ tx_parse_args(int argc, char **argv)
 			{"pkt-len", required_argument, NULL, 'l'},
 			{"rx-mode", no_argument, NULL, 'r'},
 			{"tx-mode", no_argument, NULL, 't'},
+			{"latency-mode", no_argument, NULL, '1'},
 			{"file-name", required_argument, NULL, 'f'},
 			{0, 0, 0, 0}
     };
@@ -276,6 +277,9 @@ tx_parse_args(int argc, char **argv)
 			break;
 		case 'f':
 			file_to_transmit = optarg;
+			break;
+		case '1':
+			global_config.fwd_eng = &latency_engine;
 			break;
 			
 		case 1:
