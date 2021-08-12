@@ -176,7 +176,7 @@ launch_pkt_fwd() {
 	fwd_stats_reset();
 	error = start_remote_callback((void *) &fwd_lcores);
 	rte_delay_ms(MIN_TX_AFTER_DELAY); /* allow NIC to consume all due packets */
-	fwd_stats_display();
+	fwd_stats_display_neat();
 
 	if (fwd_end) {
 		(*fwd_end)(NULL);

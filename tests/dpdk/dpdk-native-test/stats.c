@@ -127,6 +127,79 @@ map_port_queue_stats_mapping_registers(portid_t pi, struct rte_port *port)
 	}
 }
 
+void fwd_stats_display_neat(void)
+{
+	struct {
+		struct fwd_stream *rx_stream;
+		struct fwd_stream *tx_stream;
+		uint64_t tx_dropped;
+		uint64_t tx_packets;
+		uint64_t rx_bad_ip_csum;
+		uint64_t rx_bad_l4_csum;
+		uint64_t rx_bad_outer_l4_csum;
+	} ports_stats[RTE_MAX_ETHPORTS];
+
+	uint64_t total_rx_dropped = 0;
+	uint64_t total_tx_dropped = 0;
+	uint64_t total_rx_nombuf = 0;
+
+	struct rte_eth_stats stats;
+#ifdef RTE_TEST_PMD_RECORD_CORE_CYCLES
+	uint64_t fwd_cycles = 0;
+#endif
+	uint64_t total_recv = 0;
+	uint64_t total_xmit = 0;
+	struct rte_port *port;
+	portid_t pt_id;
+
+	memset(ports_stats, 0, sizeof(ports_stats));
+
+    uint64_t curr_tsc = rte_get_tsc_cycles();
+    uint64_t hz = rte_get_tsc_hz();
+    uint64_t elapsed = (curr_tsc - start_tsc_stats) - hz * (MIN_TX_AFTER_DELAY) / 1000;
+
+    struct fwd_stream *fs = &fwd_streams;
+
+    ports_stats[fs->tx_port].tx_stream = fs;
+    ports_stats[fs->rx_port].rx_stream = fs;
+
+    ports_stats[fs->tx_port].tx_dropped += fs->fwd_dropped;
+    ports_stats[fs->tx_port].tx_packets += fs->tx_packets;
+
+    ports_stats[fs->rx_port].rx_bad_ip_csum += fs->rx_bad_ip_csum;
+    ports_stats[fs->rx_port].rx_bad_l4_csum += fs->rx_bad_l4_csum;
+    ports_stats[fs->rx_port].rx_bad_outer_l4_csum +=
+            fs->rx_bad_outer_l4_csum;
+
+    RTE_ETH_FOREACH_DEV(pt_id) {
+        uint8_t j;
+
+		port = &ports[pt_id];
+
+		rte_eth_stats_get(pt_id, &stats);
+		stats.ipackets -= port->stats.ipackets;
+		stats.opackets -= port->stats.opackets;
+		stats.ibytes -= port->stats.ibytes;
+		stats.obytes -= port->stats.obytes;
+		stats.imissed -= port->stats.imissed;
+		stats.oerrors -= port->stats.oerrors;
+		stats.rx_nombuf -= port->stats.rx_nombuf;
+
+		total_recv += stats.ipackets;
+		total_xmit += stats.opackets;
+		total_rx_dropped += stats.imissed;
+		total_tx_dropped += ports_stats[pt_id].tx_dropped;
+		total_tx_dropped += stats.oerrors;
+		total_rx_nombuf  += stats.rx_nombuf;
+
+		printf("port %d: tx-pps: %-14.2f\n",
+				pt_id,
+				1.0 * ports_stats[pt_id].tx_packets / elapsed * hz);
+    }
+
+	printf("all: tx-pps: %-14.2f\n", 1.0 * total_xmit / elapsed * hz);
+}
+
 void
 fwd_stats_display(void)
 {

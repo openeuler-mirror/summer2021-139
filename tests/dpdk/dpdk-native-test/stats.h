@@ -12,6 +12,7 @@ struct queue_stats_mappings {
 
 void fwd_stats_display(void);
 void fwd_stats_reset(void);
+void fwd_stats_display_neat(void);
 
 void map_port_queue_stats_mapping_registers(portid_t pi, struct rte_port *port);
 
