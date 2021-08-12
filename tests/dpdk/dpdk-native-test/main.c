@@ -190,21 +190,36 @@ launch_pkt_fwd() {
 static void
 usage(const char *prgname)
 {
-	printf("./ebs -l 0 -n number_of_memory_channels [EAL parameters] -- [ebs parameters]\n"
-			"ebs parameters: (--peer peer_mac_address) \n"
+	printf("./tx -l 0 -n number_of_memory_channels [EAL parameters] -- [tx parameters]\n"
+			"tx parameters: (--peer peer_mac_address) \n"
 			"	(-l length) the length of each packet(burstlet)\n"
 			"	(--tx-mode) for testing only. send 0 filled packets\n"
 			"	(--rx-mode) for testing only. poll and receive packets \n"
-			"	(--ebs-mode) use ebs packet to send a file\n"
-			"	(--ebs-rx-mode) for testing only. poll and receive packets \n"
 			"	(--file-name filename) the path to file to send\n"
 			);
 	// printf("invalid param\n");
 }
 
+static int
+parse_portmask(const char *portmask)
+{
+	char *end = NULL;
+	unsigned long pm;
+
+	/* parse hexadecimal string */
+	pm = strtoul(portmask, &end, 16);
+	if ((portmask[0] == '\0') || (end == NULL) || (*end != '\0'))
+		return -1;
+
+	if (pm == 0)
+		return -1;
+
+	return pm;
+}
+
 /* Parse the argument given in the command line of the application */
 static int
-txer_parse_args(int argc, char **argv)
+tx_parse_args(int argc, char **argv)
 {
 	int opt, ret;
 	char **argvopt;
@@ -225,20 +240,24 @@ txer_parse_args(int argc, char **argv)
 			{"pkt-len", required_argument, NULL, 'l'},
 			{"rx-mode", no_argument, NULL, 'r'},
 			{"tx-mode", no_argument, NULL, 't'},
-			{"ebs-mode", no_argument, NULL, 'e'},
-			{"ebs-rx-mode", no_argument, NULL, 's'},
 			{"file-name", required_argument, NULL, 'f'},
 			{0, 0, 0, 0}
     };
 
-	while ((opt = getopt_long(argc, argvopt, "l:f:",
+	while ((opt = getopt_long(argc, argvopt, "l:f:p:",
 				  long_options, &option_index)) != EOF) {
 
 		switch (opt) {
 		/* portmask */
-		// case 'p':
-		// 	/* TODO: parse port mask here */
-		// 	break;
+		case 'p':
+			l2fwd_enabled_port_mask = parse_portmask(optarg);
+			if (l2fwd_enabled_port_mask == 0) {
+				printf("invalid portmask\n");
+				usage(prgname);
+				return -1;
+			}
+			break;
+
 		// /* nqueue */
 		// case 'q':
 		// 	/* TODO: parse nqueue here */
@@ -254,12 +273,6 @@ txer_parse_args(int argc, char **argv)
 			break;
 		case 't':
 			global_config.fwd_eng = &tx_engine;
-			break;
-		case 'e':
-			global_config.fwd_eng = &ebs_engine;
-			break;
-		case 's':
-			global_config.fwd_eng = &ebs_rx_engine;
 			break;
 		case 'f':
 			file_to_transmit = optarg;
@@ -278,13 +291,6 @@ txer_parse_args(int argc, char **argv)
 	if ((global_config.fwd_eng == &tx_engine
 			|| global_config.fwd_eng == &tx_engine)
 			&& peer_addr_str == NULL) {
-		usage(prgname);
-		return -1;
-	}
-
-	if (global_config.fwd_eng == &ebs_engine
-			&& file_to_transmit == NULL) {
-		printf("filename not specified\n");
 		usage(prgname);
 		return -1;
 	}
@@ -635,7 +641,7 @@ main(int argc, char **argv)
 
 
 	/* parse application arguments (after the EAL ones) */
-	ret = txer_parse_args(argc, argv);
+	ret = tx_parse_args(argc, argv);
 	if (ret < 0)
 		rte_exit(EXIT_FAILURE, "Invalid arguments\n");
 
@@ -656,8 +662,12 @@ main(int argc, char **argv)
 	check_nb_ports();
 	set_def_peer_eth_addrs();
 
-	/* Initialise each port, should only have one */
+	/* Initialise each port */
 	RTE_ETH_FOREACH_DEV(portid) {
+		/* skip port that's not enabled */
+		if ((l2fwd_enabled_port_mask & (1 << portid)) == 0)
+			continue;
+
 		nb_ports_available++;
 
 		/* init port */
@@ -695,7 +705,7 @@ main(int argc, char **argv)
 			"All available ports are disabled. Please set portmask.\n");
 	}
 
-	check_all_ports_link_status(0xffff);
+	check_all_ports_link_status(l2fwd_enabled_port_mask);
 
 	ret = 0;
 
