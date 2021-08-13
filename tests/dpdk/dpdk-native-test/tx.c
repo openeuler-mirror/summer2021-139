@@ -279,6 +279,7 @@ pkt_burst_transmit(struct fwd_stream *fs)
 					&pkts_burst[nb_tx], nb_pkt - nb_tx);
 		}
 	}
+	printf("sent %d pkts\n", nb_tx);
 	fs->tx_packets += nb_tx;
 
 	// if (txonly_multi_flow)
