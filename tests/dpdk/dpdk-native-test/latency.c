@@ -210,6 +210,39 @@ pkt_burst_prepare(struct rte_mbuf *pkt, struct rte_mempool *mbp,
 	return true;
 }
 
+static bool
+check_echo_response(struct rte_mbuf *buff)
+{
+	struct rte_ipv4_hdr *hdr;
+	struct rte_icmp_hdr *icmp;
+
+	hdr = rte_pktmbuf_mtod_offset(buff, struct rte_ipv4_hdr *,
+			sizeof(struct rte_ether_hdr));
+	if (!hdr || !hdr->next_proto_id)
+		return false;
+	if (likely(hdr->next_proto_id != IPPROTO_ICMP))
+		return false;
+	icmp = rte_pktmbuf_mtod_offset(buff, struct rte_icmp_hdr *,
+			sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr));
+	if (icmp && icmp->icmp_code == 0x00)
+		return true;
+	return false;
+}
+
+static void
+print_latency(struct rte_mbuf *buff)
+{
+	struct rte_icmp_hdr *icmp;
+	icmp = rte_pktmbuf_mtod_offset(buff, struct rte_icmp_hdr *,
+			sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr));
+	uint16_t seq = rte_be_to_cpu_16(icmp->icmp_seq_nb);
+	if (send_time[seq] != 0) {
+		uint64_t lat = rte_rdtsc() - send_time[seq];
+		printf("rtt: %.2f\n", 1.0 * lat / rte_get_tsc_hz() * MS_PER_S);
+	} else {
+		printf("wrong seq nb!\n");
+	}
+}
 /*
  * Transmit a burst of multi-segments packets.
  */
@@ -221,7 +254,8 @@ pkt_burst_transmit(struct fwd_stream *fs)
 	struct rte_mbuf *pkt;
 	struct rte_mempool *mbp;
 	struct rte_ether_hdr eth_hdr;
-	uint16_t nb_tx;
+	uint16_t nb_tx, nb_rx;
+	int i;
 	uint16_t nb_pkt;
 	uint16_t vlan_tci, vlan_tci_outer;
 	uint32_t retry;
@@ -239,6 +273,24 @@ pkt_burst_transmit(struct fwd_stream *fs)
 
 	/** TODO: recv here */
 
+	struct rte_mbuf *mb;
+	nb_rx = rte_eth_rx_burst(fs->rx_port, fs->rx_queue, pkts_burst,
+				 nb_pkt_per_burst);
+	for (i = 0; i < nb_rx; i++) {
+		if (likely(i < nb_rx - 1))
+			rte_prefetch0(rte_pktmbuf_mtod(pkts_burst[i + 1],
+						       void *));
+		mb = pkts_burst[i];
+		if (check_echo_response(mb)) {
+			printf("got a echo response.\n");
+			print_latency(mb);
+		}
+	}
+
+	for (i = 0; i < nb_rx; i++)
+		rte_pktmbuf_free(pkts_burst[i]);
+
+	/* is it the time to send another? */
     timer_curr_tsc = rte_rdtsc();
     timer_diff_tsc = timer_curr_tsc - timer_prev_tsc;
     if (likely(timer_diff_tsc < timer_period)) {
@@ -270,6 +322,7 @@ pkt_burst_transmit(struct fwd_stream *fs)
 
 	update_icmp_hdr(&pkt_icmp_hdr);
 
+	/* allocate a single packet */
 	pkt = rte_mbuf_raw_alloc(mbp);
 	if (pkt == NULL)
 		return;
