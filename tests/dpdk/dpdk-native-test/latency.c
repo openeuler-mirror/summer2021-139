@@ -51,6 +51,7 @@ struct rte_icmp_hdr pkt_icmp_hdr; /**< ICMP header of tx packets. */
 
 #define TEST_ECHO_TIMES_NB 10  /* 10 burst of echo packets */
 #define TEST_INTERVAL_US 1e6
+#define PING_REQUEST_PKT_LEN 64
 
 static uint64_t timer_start_tsc;
 static uint64_t timer_prev_tsc;
@@ -126,7 +127,7 @@ setup_pkt_icmp_ip_headers(struct rte_ipv4_hdr *ip_hdr,
 	 * Initialize ICMP header.
 	 */
 	pkt_len = (uint16_t) (pkt_data_len + sizeof(struct rte_icmp_hdr));
-	icmp_hdr->icmp_type = 0x8; /* ping request */
+	icmp_hdr->icmp_type = RTE_IP_ICMP_ECHO_REQUEST; /* ping request */
 	icmp_hdr->icmp_code = 0;
 	icmp_hdr->icmp_cksum = 0;
 	icmp_hdr->icmp_ident = rte_cpu_to_be_16((uint16_t) getpid()); /* TODO: add pid based identifier */
@@ -158,23 +159,13 @@ pkt_burst_prepare(struct rte_mbuf *pkt, struct rte_mempool *mbp,
 		struct rte_ether_hdr *eth_hdr, const uint16_t vlan_tci,
 		const uint16_t vlan_tci_outer, const uint64_t ol_flags)
 {
-	struct rte_mbuf *pkt_segs[RTE_MAX_SEGS_PER_PKT];
-	struct rte_mbuf *pkt_seg;
 	uint32_t nb_segs, pkt_len;
 	uint8_t i;
 
-	if (unlikely(tx_pkt_split == TX_PKT_SPLIT_RND))
-		nb_segs = rte_rand() % tx_pkt_nb_segs + 1;
-	else
-		nb_segs = tx_pkt_nb_segs;
-
-	if (nb_segs > 1) {
-		if (rte_mempool_get_bulk(mbp, (void **)pkt_segs, nb_segs - 1))
-			return false;
-	}
+	nb_segs = 1;
 
 	rte_pktmbuf_reset_headroom(pkt);
-	pkt->data_len = tx_pkt_seg_lengths[0];
+	pkt->data_len = PING_REQUEST_PKT_LEN;
 	pkt->ol_flags = ol_flags;
 	pkt->vlan_tci = vlan_tci;
 	pkt->vlan_tci_outer = vlan_tci_outer;
@@ -182,14 +173,8 @@ pkt_burst_prepare(struct rte_mbuf *pkt, struct rte_mempool *mbp,
 	pkt->l3_len = sizeof(struct rte_ipv4_hdr);
 
 	pkt_len = pkt->data_len;
-	pkt_seg = pkt;
-	for (i = 1; i < nb_segs; i++) {
-		pkt_seg->next = pkt_segs[i - 1];
-		pkt_seg = pkt_seg->next;
-		pkt_seg->data_len = tx_pkt_seg_lengths[i];
-		pkt_len += pkt_seg->data_len;
-	}
-	pkt_seg->next = NULL; /* Last segment of packet. */
+	pkt->next = NULL;
+	
 	/*
 	 * Copy headers in first packet segment(s).
 	 */
@@ -200,10 +185,7 @@ pkt_burst_prepare(struct rte_mbuf *pkt, struct rte_mempool *mbp,
 	copy_buf_to_pkt(&pkt_icmp_hdr, sizeof(pkt_icmp_hdr), pkt,
 			sizeof(struct rte_ether_hdr) +
 			sizeof(struct rte_ipv4_hdr));
-	/*
-	 * Complete first mbuf of packet and append it to the
-	 * burst of packets to be transmitted.
-	 */
+
 	pkt->nb_segs = nb_segs;
 	pkt->pkt_len = pkt_len;
 
@@ -224,7 +206,7 @@ check_echo_response(struct rte_mbuf *buff)
 		return false;
 	icmp = rte_pktmbuf_mtod_offset(buff, struct rte_icmp_hdr *,
 			sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr));
-	if (icmp && icmp->icmp_code == 0x00)
+	if (icmp && icmp->icmp_type == RTE_IP_ICMP_ECHO_REPLY)
 		return true;
 	return false;
 }
@@ -236,13 +218,15 @@ print_latency(struct rte_mbuf *buff)
 	icmp = rte_pktmbuf_mtod_offset(buff, struct rte_icmp_hdr *,
 			sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr));
 	uint16_t seq = rte_be_to_cpu_16(icmp->icmp_seq_nb);
-	if (send_time[seq] != 0) {
-		uint64_t lat = rte_rdtsc() - send_time[seq];
-		printf("rtt: %.2f\n", 1.0 * lat / rte_get_tsc_hz() * MS_PER_S);
+	if (send_time[seq - 1] != 0) {
+		uint64_t now = rte_rdtsc();
+		uint64_t lat = now - send_time[seq - 1];
+		printf("rtt: %.2fms\n", 1.0 * lat / rte_get_tsc_hz() * MS_PER_S);
 	} else {
-		printf("wrong seq nb!\n");
+		printf("wrong seq nb being %d!\n", seq);
 	}
 }
+
 /*
  * Transmit a burst of multi-segments packets.
  */
@@ -282,7 +266,6 @@ pkt_burst_transmit(struct fwd_stream *fs)
 						       void *));
 		mb = pkts_burst[i];
 		if (check_echo_response(mb)) {
-			printf("got a echo response.\n");
 			print_latency(mb);
 		}
 	}
@@ -296,9 +279,13 @@ pkt_burst_transmit(struct fwd_stream *fs)
     if (likely(timer_diff_tsc < timer_period)) {
         return; /* not yet, continue */
     }
-    echo_seq_nb++;
     timer_prev_tsc = timer_curr_tsc;
-    
+
+    echo_seq_nb++;
+    if (echo_seq_nb > TEST_ECHO_TIMES_NB) {
+        fs->done = true;
+		return;
+    }
 
 	mbp = current_fwd_lcore()->mbp;
 	txp = &ports[fs->tx_port];
@@ -363,10 +350,6 @@ pkt_burst_transmit(struct fwd_stream *fs)
 			rte_pktmbuf_free(pkts_burst[nb_tx]);
 		} while (++nb_tx < nb_pkt);
 	}
-
-    if (echo_seq_nb >= TEST_ECHO_TIMES_NB) {
-        fs->done = true;
-    }
 }
 
 static void
@@ -377,7 +360,7 @@ latency_begin(void *arg)
 			TEST_INTERVAL_US;
 
 	/* for echo latency test, we only send 64-byte packets */
-	const int echo_pkt_len = 64;
+	const int echo_pkt_len = PING_REQUEST_PKT_LEN;
 	pkt_data_len = (uint16_t) (echo_pkt_len - (
 					sizeof(struct rte_ether_hdr) +
 					sizeof(struct rte_ipv4_hdr) +
@@ -385,14 +368,14 @@ latency_begin(void *arg)
 	setup_pkt_icmp_ip_headers(&pkt_ip_hdr, &pkt_icmp_hdr, pkt_data_len);
 	timer_start_tsc = rte_rdtsc();
     timer_prev_tsc = timer_start_tsc;
-	fwd_stats_reset();
+	// fwd_stats_reset();
 }
 
 static void
 latency_end(void *arg)
 {
     // latency_stats_display();
-	fwd_stats_display();
+	// fwd_stats_display();
 }
 
 struct fwd_engine latency_engine = {

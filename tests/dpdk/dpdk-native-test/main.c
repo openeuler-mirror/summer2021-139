@@ -238,10 +238,10 @@ tx_parse_args(int argc, char **argv)
 			// {"src-ip", required_argument, NULL, 2},
 			// {"dst-ip", required_argument, NULL, 3},
 			{"pkt-len", required_argument, NULL, 'l'},
-			{"rx-mode", no_argument, NULL, 'r'},
-			{"tx-mode", no_argument, NULL, 't'},
-			{"latency-mode", no_argument, NULL, '1'},
-			{"file-name", required_argument, NULL, 'f'},
+			{"rx-mode", no_argument, NULL, '1'},
+			{"tx-mode", no_argument, NULL, '2'},
+			{"latency-mode", no_argument, NULL, '3'},
+			{"icmpecho", no_argument, NULL, '4'},
 			{0, 0, 0, 0}
     };
 
@@ -269,17 +269,21 @@ tx_parse_args(int argc, char **argv)
 			/* we don't split */
 			tx_pkt_seg_lengths[0] = tx_pkt_length;
 			break;
-		case 'r':
-			global_config.fwd_eng = &rx_engine;
-			break;
-		case 't':
-			global_config.fwd_eng = &tx_engine;
-			break;
 		case 'f':
 			file_to_transmit = optarg;
 			break;
+
 		case '1':
+			global_config.fwd_eng = &rx_engine;
+			break;
+		case '2':
+			global_config.fwd_eng = &tx_engine;
+			break;
+		case '3':
 			global_config.fwd_eng = &latency_engine;
+			break;
+		case '4':
+			global_config.fwd_eng = &icmp_echo_engine;
 			break;
 			
 		case 1:
