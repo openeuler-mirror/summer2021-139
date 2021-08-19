@@ -27,6 +27,7 @@ from .commandUI import CommandUI
 from .job import Job
 from .reboot import Reboot
 from .client import Client
+from .dpdkutil import get_devices_with_compatible_driver
 
 
 class EulerCertification():
@@ -294,10 +295,11 @@ class EulerCertification():
                             except KeyError:
                                 sort_devices["infiniband"] = [device]
                         elif interface in line and "ethernet" in line:
-                            try:
-                                sort_devices["ethernet"].extend([device])
-                            except KeyError:
-                                sort_devices["ethernet"] = [device]
+                            if 'connected' in line:
+                                try:
+                                    sort_devices["ethernet"].extend([device])
+                                except KeyError:
+                                    sort_devices["ethernet"] = [device]
                         elif interface in line and "wifi" in line:
                             try:
                                 sort_devices["wlan"].extend([device])
@@ -318,6 +320,18 @@ class EulerCertification():
                         break
             if device.get_property("SUBSYSTEM") == "ipmi":
                 sort_devices["ipmi"] = [empty_device]
+        
+        # add dpdk test devices
+        dpdk_devs = get_devices_with_compatible_driver()
+        for dev in dpdk_devs:
+            prop = dict()
+            prop["DEVNAME"] = dev
+            prop["DEVPATH"] = "" # TODO: do we need a path?
+            try:
+                sort_devices["dpdk"].extend([Device(prop)])
+            except KeyError:
+                sort_devices["dpdk"] = [Device(prop)]
+
         try:
             Command("dmidecode").get_str("IPMI Device Information",
                                          single_line=False)
