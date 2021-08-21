@@ -74,12 +74,12 @@ class Job():
             return None
 
         sys.path.insert(0, dirpath)
-        try:
-            module = __import__(testname, globals(), locals())
-        except Exception as concrete_error:
-            print("Error: module import failed for %s" % testname)
-            print(concrete_error)
-            return None
+        # try:
+        module = __import__(testname, globals(), locals())
+        # except Exception as concrete_error:
+        #     print("Error: module import failed for %s" % testname)
+        #     print(concrete_error)
+        #     return None
 
         for thing in dir(module):
             test_class = getattr(module, thing)

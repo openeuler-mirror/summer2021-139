@@ -1,8 +1,13 @@
+import os
+import sys
+
 from tests.dpdk.dpdk import DPDKTest
 from tests.dpdk.devbind import get_devices
 from tests.dpdk.devbind import network_devices
 from tests.dpdk.devbind import is_device_bind
 from hwcompatible.dpdkutil import get_devices_with_compatible_driver
+from hwcompatible.env import CertEnv
+
 
 tmp = DPDKTest()
 
@@ -19,3 +24,4 @@ is_device_bind()
 
 l = get_devices_with_compatible_driver()
 print(l)
+

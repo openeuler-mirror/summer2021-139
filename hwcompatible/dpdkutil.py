@@ -52,7 +52,6 @@ def get_devices_with_compatible_driver():
     pci_slots = []
     devices = get_devices(network_devices)
     if len(devices) == 0:
-        print("[X] No interface detected.")
         return pci_slots
     for d in devices.keys():
         if "Driver_str" in devices[d]:

@@ -12,13 +12,12 @@ except ImportError:
     # from urllib2 import urlopen, Request, HTTPError
 
 from hwcompatible.test import Test
-from hwcompatible.command import Command
+from hwcompatible.command import Command, CertCommandError
 from hwcompatible.document import CertDocument
 from hwcompatible.env import CertEnv
 
-from . import hugepages as hp
-from . import devbind as db
-# import hugepages as hp
+import hugepages as hp
+import devbind as db
 
 # TODO: do we need vfio modules?
 class DPDKTest(Test):
@@ -26,14 +25,35 @@ class DPDKTest(Test):
         print("This is a basic test based on DPDK 20.11.0.\n"
         "DPDK version should be newer than this minimum to avoid unintended behaviour")
         Test.__init__(self)
-        self.requirements = ['test-pmd']
+        self.requirements = []
         self.subtests = [self.test_setup, self.test_speed,
                 self.test_latency, self.test_cpu_usage]
         self.server_ip = None
         self.numa = hp.is_numa()
         # list of suported DPDK drivers
         self.supported_modules = ["igb_uio", "vfio-pci", "uio_pci_generic"]
+        self.test_dir = os.path.dirname(os.path.realpath(__file__))
 
+
+    def setup(self, args=None):
+        """
+        Initialization before test
+        :return:
+        """
+        pass
+
+    def test(self):
+        """
+        test case
+        :return:
+        """
+        if not self.test_setup():
+            return False
+
+        if not self.test_speed():
+            return False
+
+        return True
 
     def test_setup(self):
         if not self._check_hugepage_allocate():
@@ -55,12 +75,18 @@ class DPDKTest(Test):
 
     def test_speed(self):
         '''test (single-core) DPDK speed'''
-        if not self.call_remote_server("test-pmd"):
-            print("[X] start DPDK server failed.")
+        try:
+            comm = Command("cd %s; ./build/tx -l 0 -n 1 -d /usr/local/lib64 -- --peer fa:16:3e:2b:ef:be -p 0x1 -l 64 --tx-mode"
+                    % self.test_dir)
+            res = comm.get_str(regex="tx-pps: [0-9.]*", single_line=False)
+            print(res)
+
+        except CertCommandError as concrete_error:
+            print(concrete_error)
+            print("Error: hugepages test fail.\n")
             return False
-        
-        print("[+] Testing speed...")
-        pass
+
+        return True
 
     def test_latency(self):
         pass
