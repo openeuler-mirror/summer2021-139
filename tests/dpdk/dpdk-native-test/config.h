@@ -34,6 +34,8 @@ typedef uint16_t portid_t;
 typedef uint16_t queueid_t;
 typedef uint16_t streamid_t;
 
+uint32_t enabled_port_mask;
+
 /**
  * The data structure associated with each port.
  */

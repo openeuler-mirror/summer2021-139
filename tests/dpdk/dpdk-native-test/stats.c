@@ -172,6 +172,8 @@ void fwd_stats_display_neat(void)
             fs->rx_bad_outer_l4_csum;
 
     RTE_ETH_FOREACH_DEV(pt_id) {
+		if ((enabled_port_mask & (1 << pt_id)) == 0)
+			continue;
         uint8_t j;
 
 		port = &ports[pt_id];
@@ -252,6 +254,8 @@ fwd_stats_display(void)
 #endif
     
     RTE_ETH_FOREACH_DEV(pt_id) {
+		if ((enabled_port_mask & (1 << pt_id)) == 0)
+			continue;
         uint8_t j;
 
 		port = &ports[pt_id];

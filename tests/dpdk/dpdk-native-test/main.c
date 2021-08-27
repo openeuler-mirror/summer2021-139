@@ -62,9 +62,6 @@ static volatile bool force_quit;
 static uint16_t nb_rxd = RTE_TEST_RX_DESC_DEFAULT;
 static uint16_t nb_txd = RTE_TEST_TX_DESC_DEFAULT;
 
-/* mask of enabled ports, not used */
-static uint32_t l2fwd_enabled_port_mask = 0;
-
 /*
  * Ethernet device configuration.
  */
@@ -251,8 +248,8 @@ tx_parse_args(int argc, char **argv)
 		switch (opt) {
 		/* portmask */
 		case 'p':
-			l2fwd_enabled_port_mask = parse_portmask(optarg);
-			if (l2fwd_enabled_port_mask == 0) {
+			enabled_port_mask = parse_portmask(optarg);
+			if (enabled_port_mask == 0) {
 				printf("invalid portmask\n");
 				usage(prgname);
 				return -1;
@@ -662,7 +659,7 @@ main(int argc, char **argv)
 		rte_exit(EXIT_FAILURE, "No Ethernet ports - bye\n");
 
 	/* check port mask to possible port mask */
-	if (l2fwd_enabled_port_mask & ~((1 << nb_ports) - 1))
+	if (enabled_port_mask & ~((1 << nb_ports) - 1))
 		rte_exit(EXIT_FAILURE, "Invalid portmask; possible (0x%x)\n",
 			(1 << nb_ports) - 1);
 
@@ -673,7 +670,7 @@ main(int argc, char **argv)
 	/* Initialise each port */
 	RTE_ETH_FOREACH_DEV(portid) {
 		/* skip port that's not enabled */
-		if ((l2fwd_enabled_port_mask & (1 << portid)) == 0)
+		if ((enabled_port_mask & (1 << portid)) == 0)
 			continue;
 
 		nb_ports_available++;
@@ -713,7 +710,7 @@ main(int argc, char **argv)
 			"All available ports are disabled. Please set portmask.\n");
 	}
 
-	check_all_ports_link_status(l2fwd_enabled_port_mask);
+	check_all_ports_link_status(enabled_port_mask);
 
 	ret = 0;
 
@@ -721,7 +718,7 @@ main(int argc, char **argv)
 	launch_pkt_fwd();
 
 	RTE_ETH_FOREACH_DEV(portid) {
-		if ((l2fwd_enabled_port_mask & (1 << portid)) == 0)
+		if ((enabled_port_mask & (1 << portid)) == 0)
 			continue;
 		printf("Closing port %d...", portid);
 		rte_eth_dev_stop(portid);

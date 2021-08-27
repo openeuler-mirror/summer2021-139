@@ -33,6 +33,8 @@ class DPDKTest(Test):
         # list of suported DPDK drivers
         self.supported_modules = ["igb_uio", "vfio-pci", "uio_pci_generic"]
         self.test_dir = os.path.dirname(os.path.realpath(__file__))
+        self.dut = '' # name the the device under test
+        self.portmask = "0xffff"
 
 
     def setup(self, args=None):
@@ -40,7 +42,17 @@ class DPDKTest(Test):
         Initialization before test
         :return:
         """
-        pass
+        print(args)
+        self.args = args or argparse.Namespace()
+        self.dut = getattr(self.args, 'device', None)
+        portid = int(self.dut.get_property("PORTNB"))
+        self.portmask = "0x" + str(2 ** (portid - 1))
+        while True:
+            self.peermac = input("Please enter the peer MAC address for this test:")
+            if not self.peermac:
+                print("Invalid MAC address!")
+            else:
+                break
 
     def test(self):
         """
@@ -75,15 +87,16 @@ class DPDKTest(Test):
 
     def test_speed(self):
         '''test (single-core) DPDK speed'''
+        print("Please wait while speed test is running...")
         try:
-            comm = Command("cd %s; ./build/tx -l 0 -n 1 -d /usr/local/lib64 -- --peer fa:16:3e:2b:ef:be -p 0x1 -l 64 --tx-mode"
-                    % self.test_dir)
+            comm = Command("cd %s; ./build/tx -l 0 -n 1 -d /usr/local/lib64 -- --peer %s -p %s -l 64 --tx-mode"
+                    % (self.test_dir, self.peermac, self.portmask))
             res = comm.get_str(regex="tx-pps: [0-9.]*", single_line=False)
             print(res)
-
+            print(comm.command)
         except CertCommandError as concrete_error:
             print(concrete_error)
-            print("Error: hugepages test fail.\n")
+            print("[X] Speed test fail.\n")
             return False
 
         return True

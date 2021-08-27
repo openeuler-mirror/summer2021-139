@@ -323,10 +323,13 @@ class EulerCertification():
         
         # add dpdk test devices
         dpdk_devs = get_devices_with_compatible_driver()
+        dpdk_dev_nb = 0
         for dev in dpdk_devs:
+            dpdk_dev_nb += 1
             prop = dict()
             prop["DEVNAME"] = dev
             prop["DEVPATH"] = "" # TODO: do we need a path?
+            prop["PORTNB"] = dpdk_dev_nb
             try:
                 sort_devices["dpdk"].extend([Device(prop)])
             except KeyError:
