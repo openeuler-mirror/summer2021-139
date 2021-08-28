@@ -42,7 +42,6 @@ class DPDKTest(Test):
         Initialization before test
         :return:
         """
-        print(args)
         self.args = args or argparse.Namespace()
         self.dut = getattr(self.args, 'device', None)
         portid = int(self.dut.get_property("PORTNB"))
@@ -78,22 +77,23 @@ class DPDKTest(Test):
         print("[.] Hugepage successfully configured.")
         self._show_hugepage()
 
-        if not self._check_lsmod():
-            print("[X] No required kernel module was found (uio, igb_uio or vfio).")
-            return False
-        print("[.] kernel module check done.")
+        # if not self._check_lsmod():
+        #     print("[X] No required kernel module was found (uio, igb_uio or vfio).")
+        #     return False
+        # print("[.] kernel module check done.")
 
         return True
 
     def test_speed(self):
         '''test (single-core) DPDK speed'''
         print("Please wait while speed test is running...")
+        self.packet_size = 1514
         try:
-            comm = Command("cd %s; ./build/tx -l 0 -n 1 -d /usr/local/lib64 -- --peer %s -p %s -l 64 --tx-mode"
-                    % (self.test_dir, self.peermac, self.portmask))
+            comm = Command("cd %s; ./build/tx -l 0 -n 1 -d /usr/local/lib64 -- --peer %s -p %s -l %d --tx-mode"
+                    % (self.test_dir, self.peermac, self.portmask, self.packet_size))
             res = comm.get_str(regex="tx-pps: [0-9.]*", single_line=False)
-            print(res)
-            print(comm.command)
+            pps = float(res.split(':')[-1].strip())
+            print("[.] The average speed is around %f Mbps" % (8 * self.packet_size * pps / 1e6))
         except CertCommandError as concrete_error:
             print(concrete_error)
             print("[X] Speed test fail.\n")
