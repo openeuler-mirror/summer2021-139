@@ -2,6 +2,7 @@ import os
 import time
 import argparse
 import glob
+import json
 
 try:
     from urllib.parse import urlencode
@@ -46,12 +47,8 @@ class DPDKTest(Test):
         self.dut = getattr(self.args, 'device', None)
         portid = int(self.dut.get_property("PORTNB"))
         self.portmask = "0x" + str(2 ** (portid - 1))
-        while True:
-            self.peermac = input("Please enter the peer MAC address for this test:")
-            if not self.peermac:
-                print("Invalid MAC address!")
-            else:
-                break
+        self.server_ip = CertDocument(CertEnv.certificationfile).get_server()
+        self.peermac = ""
 
     def test(self):
         """
@@ -61,7 +58,20 @@ class DPDKTest(Test):
         if not self.test_setup():
             return False
 
+        # use dpdk-testpmd icmpecho as a receive side 
+        if not self.call_remote_server('dpdk-testpmd', 'start'):
+            print("[X] start dpdk-testpmd server failed."
+            "Please check your dpdk installation on server.")
+            return False
+
         if not self.test_speed():
+            return False
+        
+        if not self.test_latency():
+            return False
+        
+        if not self.call_remote_server('dpdk-testpmd', 'stop'):
+            print("[X] Stop dpdk-testpmd server failed.")
             return False
 
         return True
@@ -102,18 +112,29 @@ class DPDKTest(Test):
         return True
 
     def test_latency(self):
-        pass
+        print('[+] running dpdk latency test...')
+        try:
+            comm = Command("cd %s; ./build/tx -l 0 -n 1 -d /usr/local/lib64 -- --peer %s -p %s --latency-mode"
+                    % (self.test_dir, self.peermac, self.portmask))
+            rttstrs = comm.get_str(regex="rtt: [0-9.]*ms", single_line=False, return_list=True)
+            if not rttstrs or len(rttstrs) == 0:
+                print("[X] no response from server.")
+                return False
+            # rtt in ms
+            rtt = [float(res.split(':')[-1].strip()[:-2]) for res in rttstrs]
+            rtt_avg = sum(rtt) / len(rtt)
+            print("[.] Latency test done. The average latency is around %.4f ms" % rtt_avg)
+        except CertCommandError as concrete_error:
+            print(concrete_error)
+            print("[X] latency test fail.")
+            return False
+
+        return True
 
     def test_cpu_usage(self):
         pass
 
-    def probe_device(self):
-        pass
-
     def setup_device(self):
-        pass
-
-    def run(self):
         pass
 
     def _show_hugepage(self):
@@ -139,4 +160,22 @@ class DPDKTest(Test):
         """
         Connect to the server somehow. 
         """
-        pass
+        form = dict()
+        form['cmd'] = cmd
+        url = 'http://%s/api/dpdk/%s' % (self.server_ip, act)
+        data = urlencode(form).encode('utf8')
+        headers = {
+            'Content-type': 'application/x-www-form-urlencoded',
+            'Accept': 'text/plain'
+        }
+        try:
+            request = Request(url, data=data, headers=headers)
+            response = urlopen(request)
+        except Exception as concrete_error:
+            print(concrete_error)
+            return False
+        if act == 'start':
+            self.peermac = json.loads(response.read())['mac']
+
+        print("Status: %u %s" % (response.code, response.msg))
+        return int(response.code) == 200

@@ -5,4 +5,4 @@ test.sh
 sync.sh
 ebs/**
 tests/dpdk/temp.py
-testinput.txt
+testinput*.txt

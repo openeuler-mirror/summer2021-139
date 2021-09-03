@@ -19,6 +19,8 @@ import json
 import time
 import subprocess
 import base64
+import sys
+import re
 try:
     from urllib.parse import urlencode
     from urllib.request import urlopen, Request
@@ -28,7 +30,7 @@ except ImportError:
     from urllib2 import urlopen, Request, HTTPError
 
 from flask import Flask, render_template, redirect, url_for, abort, request, \
-                  make_response, send_from_directory, flash
+                  make_response, send_from_directory, flash, jsonify
 from flask_bootstrap import Bootstrap
 
 
@@ -42,7 +44,7 @@ dir_files = os.path.join(dir_server, 'files')
 
 
 @app.errorhandler(400)
-def bad_request():
+def bad_request(e):
     """
     bad request
     """
@@ -308,6 +310,53 @@ def upload_file():
         abort(400)
     return render_template('upload.html', filename=filename, filetext=filetext,
                            ret='Successful')
+
+
+@app.route('/api/dpdk/<act>', methods=['GET', 'POST'])
+def dpdk_test_server(act):
+    '''
+    handle dpdk server side
+    '''
+    valid_act = ['start', 'stop']
+    if act not in valid_act:
+        abort(400)
+
+    if act == 'stop':
+        cmd = "killall -9 dpdk-testpmd"
+    elif act == 'start':
+        cmd = "dpdk-testpmd -l 0-1 -n 1 -- --forward-mode=icmpecho"
+
+    if sys.version_info.major < 3:
+        pipe = subprocess.Popen(cmd, shell=True,
+                                stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE)
+    else:
+        pipe = subprocess.Popen(cmd, shell=True,
+                                stdin=subprocess.PIPE,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE,
+                                encoding='utf8')
+    time.sleep(3)
+
+    # 0 means finish with success, None means process still running.
+    if pipe.poll():
+        abort(400)
+    print(cmd)
+
+    if act == 'start':
+        pattern = re.compile("Port [0-9]*: [0-9a-fA-F:]*")
+        while True:
+            line = pipe.stdout.readline()
+            match = pattern.match(line)
+            if match:
+                # get (one of) the MAC of address
+                break
+        mac = match.group().split(':', 1)[1].strip()
+        dic = {'mac': mac}
+        return jsonify(dic)
+    elif act == 'stop':
+        return render_template('index.html')
 
 
 @app.route('/api/<act>', methods=['GET', 'POST'])
