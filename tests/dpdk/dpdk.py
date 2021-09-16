@@ -65,9 +65,13 @@ class DPDKTest(Test):
             return False
 
         if not self.test_speed():
+            if not self.call_remote_server('dpdk-testpmd', 'stop'):
+                print("[X] Stop dpdk-testpmd server failed.")
             return False
         
         if not self.test_latency():
+            if not self.call_remote_server('dpdk-testpmd', 'stop'):
+                print("[X] Stop dpdk-testpmd server failed.")
             return False
         
         if not self.call_remote_server('dpdk-testpmd', 'stop'):
