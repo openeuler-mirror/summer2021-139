@@ -66,10 +66,10 @@ class DPDKTest(Test):
             return False
 
         # use dpdk-testpmd icmpecho as a receive side 
-        # if not self.call_remote_server('dpdk-testpmd', 'start'):
-        #     print("[X] start dpdk-testpmd server failed."
-        #     "Please check your dpdk installation on server.")
-        #     return False
+        if not self.call_remote_server('dpdk-testpmd', 'start'):
+            print("[X] start dpdk-testpmd server failed."
+            "Please check your dpdk installation on server.")
+            return False
 
         if not self.test_speed():
             if not self.call_remote_server('dpdk-testpmd', 'stop'):
