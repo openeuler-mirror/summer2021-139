@@ -6,7 +6,6 @@ import argparse
 from glob import glob
 from os.path import exists, basename
 from os.path import join as path_join
-from tests.dpdk.temp import device_type_match, do_arg_actions
 
 from hwcompatible.command import Command
 

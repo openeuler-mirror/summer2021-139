@@ -125,3 +125,17 @@ def get_devices(device_type):
     
     return devices
 
+def check_ib(interface):
+    if interface == None:
+        return False
+    ib_devices = []
+    pipe = Command("ls -d /sys/class/net/*/device/infiniband_verbs/uverbs* | cut -d / -f 5")
+    pipe.start()
+    while True:
+        line = pipe.readline()
+        if "No such file" in line:
+            break
+        if not line:
+            break
+        ib_devices.append(line.strip())
+    return interface in ib_devices

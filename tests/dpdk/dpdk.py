@@ -23,8 +23,6 @@ import devbind as db
 # TODO: do we need vfio modules?
 class DPDKTest(Test):
     def __init__(self):
-        print("This is a basic test based on DPDK 20.11.0.\n"
-        "DPDK version should be newer than this minimum to avoid unintended behaviour")
         Test.__init__(self)
         self.requirements = []
         self.subtests = [self.test_setup, self.test_speed,
@@ -45,10 +43,19 @@ class DPDKTest(Test):
         """
         self.args = args or argparse.Namespace()
         self.dut = getattr(self.args, 'device', None)
-        portid = int(self.dut.get_property("PORTNB"))
-        self.portmask = "0x" + str(2 ** (portid - 1))
+
+        if not os.system("dpdk-hugepages.py --setup 2G"):
+            print("Unable to run dpdk-hugepage script. Please check your dpdk installation.")
+
+        devtype = self._get_dev_name_type(self.dut)
+        # get pci address
+        if devtype == 'ib':
+            self.pci_address = self._get_pci_of_device(self.dut)
+        else:
+            self.pci_address = self.dut.get_name()
+
         self.server_ip = CertDocument(CertEnv.certificationfile).get_server()
-        self.peermac = ""
+        self.peermac = "00:ff:78:da:61:53"
 
     def test(self):
         """
@@ -59,10 +66,10 @@ class DPDKTest(Test):
             return False
 
         # use dpdk-testpmd icmpecho as a receive side 
-        if not self.call_remote_server('dpdk-testpmd', 'start'):
-            print("[X] start dpdk-testpmd server failed."
-            "Please check your dpdk installation on server.")
-            return False
+        # if not self.call_remote_server('dpdk-testpmd', 'start'):
+        #     print("[X] start dpdk-testpmd server failed."
+        #     "Please check your dpdk installation on server.")
+        #     return False
 
         if not self.test_speed():
             if not self.call_remote_server('dpdk-testpmd', 'stop'):
@@ -103,8 +110,9 @@ class DPDKTest(Test):
         print("Please wait while speed test is running...")
         self.packet_size = 1514
         try:
-            comm = Command("cd %s; ./build/tx -l 0 -n 1 -d /usr/local/lib64 -- --peer %s -p %s -l %d --tx-mode"
-                    % (self.test_dir, self.peermac, self.portmask, self.packet_size))
+            comm = Command("cd %s; ./build/tx -l 0 -n 1 -w %s -- --peer %s -p 0x1 -l %d --tx-mode"
+                    % (self.test_dir, self.pci_address, self.peermac, self.packet_size))
+            print(comm.command)
             res = comm.get_str(regex="tx-pps: [0-9.]*", single_line=False)
             pps = float(res.split(':')[-1].strip())
             print("[.] The average speed is around %f Mbps" % (8 * self.packet_size * pps / 1e6))
@@ -118,8 +126,8 @@ class DPDKTest(Test):
     def test_latency(self):
         print('[+] running dpdk latency test...')
         try:
-            comm = Command("cd %s; ./build/tx -l 0 -n 1 -d /usr/local/lib64 -- --peer %s -p %s --latency-mode"
-                    % (self.test_dir, self.peermac, self.portmask))
+            comm = Command("cd %s; ./build/tx -l 0 -n 1 -w %s -- --peer %s -p 0x1 --latency-mode"
+                    % (self.test_dir, self.pci_address, self.peermac))
             rttstrs = comm.get_str(regex="rtt: [0-9.]*ms", single_line=False, return_list=True)
             if not rttstrs or len(rttstrs) == 0:
                 print("[X] no response from server.")
@@ -183,3 +191,67 @@ class DPDKTest(Test):
 
         print("Status: %u %s" % (response.code, response.msg))
         return int(response.code) == 200
+
+    # def _dev_unbind(self, interface=None):
+    #     if interface == None:
+    #         return
+        
+    #     # os.system("dpdk-devbind.py -u  %s" % (self.pci_address))
+    #     os.system("dpdk-devbind.py -b %s %s" % (self.old_driver, self.pci_address))
+    #     os.system("ip link set up %s" % (interface))
+    #     return
+
+    # def _dev_bind(self, interface=None):
+    #     if interface == None:
+    #         return
+
+    #     drivers = ['uio_pci_generic', 'igb_uio', 'vfio_pci']
+    #     if os.system("modprobe uio_pci_generic"):
+    #         print("uio_pci_generic is not supported. trying without it")
+        
+    #     if os.system("ip link set down %s" % (interface)):
+    #         print("Unable to set this device down, is this device currently in use?")
+    #         return
+
+    #     for driver in drivers:
+    #         if os.system("dpdk-devbind.py -b %s %s" % (driver, interface)) == 0:
+    #             return
+        
+    #     print("Bind failed. Please make sure at least one supported driver is available.")
+    #     return
+
+
+    def _get_dev_name_type(self, device):
+        '''
+        for ethernet devices, we use PCI address,
+        for IB devices, we use interface name
+        '''
+        name = device.get_name()
+        if ':' in name:
+            return 'eth'
+        else:
+            return 'ib'
+
+    def _get_pci_of_device(self, device):
+        name = device.get_name()
+        comm = Command("ethtool -i %s" % (name))
+        comm.start()
+        pci = ""
+        while True:
+            line = comm.readline()
+            if line.split(":", 1)[0].strip() == "bus-info":
+                pci = line.split(":", 1)[1].strip()
+                break
+        return pci
+
+    # def _get_driver_of_device(self, device):
+    #     name =device.get_name()
+    #     comm = Command("ethtool -i %s" % (name))
+    #     comm.start()
+    #     driver = ""
+    #     while True:
+    #         line = comm.readline()
+    #         if line.split(":", 1)[0].strip() == "driver":
+    #             pci = line.split(":", 1)[1].strip()
+    #             break
+    #     return driver

@@ -27,7 +27,7 @@ from .commandUI import CommandUI
 from .job import Job
 from .reboot import Reboot
 from .client import Client
-from .dpdkutil import get_devices_with_compatible_driver
+from .dpdkutil import check_ib, get_devices_with_compatible_driver
 
 
 class EulerCertification():
@@ -295,11 +295,19 @@ class EulerCertification():
                             except KeyError:
                                 sort_devices["infiniband"] = [device]
                         elif interface in line and "ethernet" in line:
-                            if 'connected' in line:
+                            if 'connected' in line: # bug ?
                                 try:
                                     sort_devices["ethernet"].extend([device])
+                                    if check_ib(interface):
+                                        sort_devices["dpdk"].extend([device])
                                 except KeyError:
                                     sort_devices["ethernet"] = [device]
+
+                                if check_ib(interface): # add to testcase if it's an IB card
+                                    try:
+                                        sort_devices["dpdk"].extend([device])
+                                    except KeyError:
+                                        sort_devices["dpdk"] = [device]
                         elif interface in line and "wifi" in line:
                             try:
                                 sort_devices["wlan"].extend([device])
@@ -321,7 +329,7 @@ class EulerCertification():
             if device.get_property("SUBSYSTEM") == "ipmi":
                 sort_devices["ipmi"] = [empty_device]
         
-        # add dpdk test devices
+        # # add dpdk test devices
         dpdk_devs = get_devices_with_compatible_driver()
         dpdk_dev_nb = 0
         for dev in dpdk_devs:
