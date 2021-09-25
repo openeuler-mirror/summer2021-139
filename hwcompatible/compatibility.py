@@ -298,8 +298,6 @@ class EulerCertification():
                             if 'connected' in line: # bug ?
                                 try:
                                     sort_devices["ethernet"].extend([device])
-                                    if check_ib(interface):
-                                        sort_devices["dpdk"].extend([device])
                                 except KeyError:
                                     sort_devices["ethernet"] = [device]
 
