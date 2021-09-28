@@ -26,7 +26,7 @@ class DPDKTest(Test):
         Test.__init__(self)
         self.requirements = []
         self.subtests = [self.test_setup, self.test_speed,
-                self.test_latency, self.test_cpu_usage]
+                self.test_latency]
         self.server_ip = None
         self.numa = hp.is_numa()
         # list of suported DPDK drivers
@@ -44,7 +44,7 @@ class DPDKTest(Test):
         self.args = args or argparse.Namespace()
         self.dut = getattr(self.args, 'device', None)
 
-        if not os.system("dpdk-hugepages.py --setup 2G"):
+        if os.system("dpdk-hugepages.py --setup 2G") != 0:
             print("Unable to run dpdk-hugepage script. Please check your dpdk installation.")
 
         devtype = self._get_dev_name_type(self.dut)
@@ -55,7 +55,7 @@ class DPDKTest(Test):
             self.pci_address = self.dut.get_name()
 
         self.server_ip = CertDocument(CertEnv.certificationfile).get_server()
-        self.peermac = "00:ff:78:da:61:53"
+        self.peermac = ""
 
     def test(self):
         """
@@ -126,6 +126,8 @@ class DPDKTest(Test):
     def test_latency(self):
         print('[+] running dpdk latency test...')
         try:
+            # TODO: -w is deprecated since DPDK 20. I use -w for compatibility with version
+            # before 20. Consider using -a instead
             comm = Command("cd %s; ./build/tx -l 0 -n 1 -w %s -- --peer %s -p 0x1 --latency-mode"
                     % (self.test_dir, self.pci_address, self.peermac))
             rttstrs = comm.get_str(regex="rtt: [0-9.]*ms", single_line=False, return_list=True)

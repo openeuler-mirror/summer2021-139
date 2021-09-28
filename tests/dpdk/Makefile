@@ -17,7 +17,7 @@ all: tx;
 tx: dpdk-native-test
 	$(MAKE) -C $(SUBDIR) static
 
-install: tx
+install:
 	mkdir -p $(DEST)
 	cp -a $(SUBDIR)/build *.py $(DEST)
 	chmod a+x $(DEST)/*.py
