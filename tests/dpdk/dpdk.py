@@ -1,7 +1,5 @@
 import os
-import time
 import argparse
-import glob
 import json
 
 try:
@@ -18,7 +16,7 @@ from hwcompatible.document import CertDocument
 from hwcompatible.env import CertEnv
 
 import hugepages as hp
-import devbind as db
+# import devbind as db
 
 # TODO: do we need vfio modules?
 class DPDKTest(Test):

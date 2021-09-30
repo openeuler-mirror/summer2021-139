@@ -191,10 +191,8 @@ usage(const char *prgname)
 			"tx parameters: (--peer peer_mac_address) \n"
 			"	(-l length) the length of each packet(burstlet)\n"
 			"	(--tx-mode) for testing only. send 0 filled packets\n"
-			"	(--rx-mode) for testing only. poll and receive packets \n"
-			"	(--file-name filename) the path to file to send\n"
+			"	(--latency-mode) send icmp ping requests\n"
 			, prgname);
-	// printf("invalid param\n");
 }
 
 static int
